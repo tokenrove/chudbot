@@ -1,0 +1,6 @@
+[submodule "vendor/cowboy"]
+	path = vendor/cowboy
+	url = https://github.com/extend/cowboy.git
+[submodule "vendor/ranch"]
+	path = vendor/ranch
+	url = git://github.com/extend/ranch.git
