@@ -1,6 +1,13 @@
+-module(webhooks).
+-export([init/2]).
 
-init(Config, Irc) ->
-    Dispatch = proplists:get_value(dispatch, Config),
-    Port = proplists:get_value(port, Config),
-    {ok, _} = cowboy:start_http(http, 100, [{port, Port}], [{dispatch, Dispatch}]),
-    ???.
+init(Req, Opts) ->
+    %% {ok, KeyValues, Req2} = cowboy_req:body_qs(Req),
+    %% {_, Lang} = lists:keyfind(lang, 1, KeyValues).
+    {ok, Data, Req2} = cowboy_req:body(Req),
+    irc:announce(whereis(irc), io_lib:fwrite("~p: ~p", [Opts, Data])),
+    Rep = cowboy_req:reply(200,
+                           [{<<"content-type">>, <<"text/plain">>}],
+                           <<"ok">>,
+                           Req2),
+    {ok, Rep, {}}.

@@ -1,0 +1,16 @@
+%%-*- mode: erlang -*-
+{application, chudbot,
+ [
+  {description, "chudbot"},
+  {vsn, "1"},
+  {modules, []},
+  {registered, [chudbot_sup, irc]},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  crypto,
+                  cowboy
+                 ]},
+  {mod, { chudbot_app, [] }},
+  {env, []}
+ ]}.
