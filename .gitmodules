@@ -4,3 +4,6 @@
 [submodule "vendor/ranch"]
 	path = vendor/ranch
 	url = git://github.com/extend/ranch.git
+[submodule "vendor/jiffy"]
+	path = vendor/jiffy
+	url = https://github.com/davisp/jiffy.git
