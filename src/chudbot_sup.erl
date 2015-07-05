@@ -9,7 +9,7 @@ start_link(IrcConfig, WebHooksConfig) ->
 init([IrcConfig, WebHooksConfig]) ->
     Dispatch = cowboy_router:compile(proplists:get_value(dispatch, WebHooksConfig)),
     Port = proplists:get_value(port, WebHooksConfig),
-    Children = [{irc, {irc, start_link, [IrcConfig]},
+    Children = [{irc, {chudbot_irc, start_link, [IrcConfig]},
                 permanent, 2000, worker, [irc]},
                 {http, {cowboy, start_http,
                         [http, 100, [{port, Port}], [{env, [{dispatch, Dispatch}]}]]},

@@ -10,7 +10,7 @@
 %%%  - handle nick in use
 %%%  - handle problem joining channel
 
--module(irc).
+-module(chudbot_irc).
 -author('Julian Squires <julian@cipht.net>').
 -behavior(gen_fsm).
 -export([start_link/1,announce/2,shutdown/1]).

@@ -4,12 +4,13 @@
   {description, "chudbot"},
   {vsn, "1"},
   {modules, []},
-  {registered, [chudbot_sup, irc]},
+  {registered, [chudbot_sup, chudbot_irc]},
   {applications, [
                   kernel,
                   stdlib,
                   crypto,
-                  cowboy
+                  cowboy,
+                  jiffy
                  ]},
   {mod, { chudbot_app, [] }},
   {env, []}
