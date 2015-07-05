@@ -17,6 +17,8 @@
 -export([init/1,handle_event/3,handle_sync_event/4,handle_info/3,terminate/3,code_change/4]).
 -export([connecting/2,connected/2,idle/2]).
 -export([parse_msg/1]).
+%% tests
+-export([sanitize_test/0]).
 
 -define(DEFAULT_PORT, 6667).
 
@@ -40,7 +42,7 @@
 %%% API
 
 start_link(Config) ->
-    gen_fsm:start_link(?MODULE, Config, []).
+    gen_fsm:start_link({local,?MODULE}, ?MODULE, Config, []).
 
 announce(Pid, Msg) ->
     gen_fsm:send_event(Pid, {notice, Msg}).
@@ -82,7 +84,7 @@ connected(What, S) ->
     {next_state, connected, S}.
 
 idle({notice, Msg}, S=#state{config=Config, socket=Socket}) ->
-    Msgs = sanitize(Msg),
+    Msgs = sanitize(iolist_to_binary(Msg), 405),
     lists:foreach(fun(M) ->
                           gen_tcp:send(Socket, fmt_notice(Config#config.channel, M))
                   end, Msgs),
@@ -223,11 +225,32 @@ possible_ctcp(Kwd, Destination, M) when byte_size(M) > 2 ->
 possible_ctcp(Kwd, Destination, M) ->
     {Kwd, Destination, M}.
 
+split1(Bin, Size, Rest) when byte_size(Bin) > Size ->
+    H = binary:part(Bin, {0, Size}),
+    T = binary:part(Bin, {Size, byte_size(Bin)-Size}),
+    split1(T, Size, [H | Rest]);
+split1(Bin, _Size, Rest) -> [Bin | Rest].
+
+split_by_size(Bin, Size) ->
+    lists:reverse(split1(Bin, Size, [])).
+
+
 %% Sanitization of an incoming message; we want to remove newlines and
 %% break long messages into smaller pieces.
-sanitize(Msg) ->
-    %% XXX
-    [Msg].
+-spec sanitize(binary(), integer()) -> [iolist()].
+sanitize(Msg, MaxLen) ->
+    Chunks = split_by_size(Msg, MaxLen),
+    lists:map(fun (X) -> binary:split(X, [<<$\r>>,<<$\n>>,<<"\r\n">>], [global,trim]) end,
+              Chunks).
+
+max_msg_len(Nick, User, Host, Channel) ->
+    496 - (byte_size(Nick) + byte_size(User) + byte_size(Host) + byte_size(Channel)).
+
+sanitize_test() ->
+    [[<<"foo">>,<<"bar">>]] = sanitize(<<"foo\r\nbar">>, 510),
+    [[]] = sanitize(<<"\n">>, 510),
+    [[<<0:3240>>], [<<0:3240>>], [<<0:1712>>]] = sanitize(<<0:8192>>, 405),
+    ok.
 
 target_and_msg(<<":", Rest/bytes>>) ->
     target_and_msg(Rest);
