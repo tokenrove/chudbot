@@ -1,0 +1,3 @@
+%%-*- mode: erlang -*-
+{key,<<"replace with key from https://trello.com/app-key">>}.
+{secret,<<"per above">>}.
