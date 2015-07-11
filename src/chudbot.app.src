@@ -1,7 +1,7 @@
 %%-*- mode: erlang -*-
 {application, chudbot,
  [
-  {description, "chudbot"},
+  {description, "Trivial IRC bot that listens to webhooks."},
   {vsn, "1"},
   {modules, []},
   {registered, [chudbot_sup, chudbot_irc, chudbot_pomodoro]},
