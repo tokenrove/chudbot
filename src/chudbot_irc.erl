@@ -45,6 +45,7 @@
 start_link(Config) ->
     gen_fsm:start_link({local,?MODULE}, ?MODULE, Config, []).
 
+announce([]) -> ignored;
 announce(Msg) ->
     gen_fsm:send_event(whereis(?MODULE), {notice, Msg}).
 
