@@ -35,6 +35,7 @@
 -record(state,
         {
           config :: #config{},
+          sender,
           socket :: inet:socket(),
           nick :: binary()
         }).
@@ -61,17 +62,18 @@ connect(#state{config=Config}) ->
                                    [binary,
                                     {packet, line},
                                     {active, true}]),
+    Sender = chudbot_delayed_dispatch:start(Socket, 500),
     Nick = Config#config.nick,
     gen_tcp:send(Socket, [<<"NICK ">>, Nick, <<"\r\n">>]),
     gen_tcp:send(Socket, [<<"USER ">>, Config#config.user, <<" 8 * ">>,
                           Config#config.real_name, <<"\r\n">>]),
-    {next_state, connecting, #state{config=Config, socket=Socket, nick=Nick}}.
+    {next_state, connecting, #state{config=Config, socket=Socket, sender=Sender, nick=Nick}}.
 
-connecting({_, {welcome, _}}, S=#state{config=Config, socket=Socket}) ->
-    gen_tcp:send(Socket, [<<"JOIN ">>, Config#config.channel, <<"\r\n">>]),
+connecting({_, {welcome, _}}, S=#state{config=Config, sender=Send}) ->
+    Send([<<"JOIN ">>, Config#config.channel, <<"\r\n">>]),
     {next_state, connected, S};
-connecting({_, {nickname_in_use, _}}, S=#state{nick=Nick, socket=Socket}) ->
-    gen_tcp:send(Socket, [<<"NICK ">>, Nick, <<"_\r\n">>]),
+connecting({_, {nickname_in_use, _}}, S=#state{nick=Nick, sender=Send}) ->
+    Send([<<"NICK ">>, Nick, <<"_\r\n">>]),
     {next_state, connecting, S#state{nick = <<Nick/bytes, <<"_">>/bytes>>}};
 connecting(What, S) ->
     unexpected([connecting, What]),
@@ -83,27 +85,27 @@ connected(What, S) ->
     unexpected([connected, What]),
     {next_state, connected, S}.
 
-idle({notice, Msg}, S=#state{config=Config, socket=Socket}) ->
-    Msgs = sanitize(iolist_to_binary(Msg), 405),
-    lists:foreach(fun(M) ->
-                          gen_tcp:send(Socket, fmt_notice(Config#config.channel, M))
-                  end, Msgs),
+idle({notice, Msg}, S=#state{config=Config, sender=Send}) ->
+    Channel = Config#config.channel,
+    Msgs = sanitize(iolist_to_binary(Msg), max_msg_len(Channel)),
+    lists:foreach(fun(M) -> Send(fmt_notice(Channel, M)) end,
+                  Msgs),
     {next_state, idle, S};
 
 idle(W={{user, Them, _}, {privmsg, Target, Msg}},
-     S=#state{config=Config, socket=Socket, nick=Nick}) ->
+     S=#state{config=Config, sender=Send, nick=Nick}) ->
     NotMyMasterMsg = <<"You're not my master.">>,
     IsMaster = lists:member(Them, Config#config.masters),
     {MsgTarget, Command} = target_and_msg(Msg),
-    if IsMaster andalso Target == Nick ->
-            handle_command(Msg, S);
-       IsMaster andalso MsgTarget == Nick ->
+    if IsMaster, Target == Nick ->
+            handle_command(Msg, Them, S);
+       IsMaster, MsgTarget == Nick ->
             %% we assume Target == Config#config.channel
-            handle_command(Command, S);
+            handle_command(Command, Config#config.channel, S);
        Target == Nick ->
-            gen_tcp:send(Socket, fmt_privmsg(Them, NotMyMasterMsg));
-       Target == Config#config.channel andalso MsgTarget == Nick ->
-            gen_tcp:send(Socket, fmt_privmsg(Target, [Them, <<": ">>, NotMyMasterMsg]));
+            Send(fmt_privmsg(Them, NotMyMasterMsg));
+       Target == Config#config.channel, MsgTarget == Nick ->
+            Send(fmt_privmsg(Target, [Them, <<": ">>, NotMyMasterMsg]));
        true ->
             unexpected([idle, W, Target, IsMaster, MsgTarget])
     end,
@@ -134,7 +136,9 @@ handle_info({tcp, Socket, Recv}, StateName, StateData) ->
     end;
 
 handle_info({tcp_closed, _Socket}, _StateName, StateData) ->
-    connect(StateData#state{socket=undefined});
+    F = StateData#state.sender,
+    F(terminate),
+    connect(StateData#state{socket=undefined, sender=undefined});
 
 handle_info(What, StateName, StateData) ->
     unexpected([handle_info, StateName, What]),
@@ -142,7 +146,8 @@ handle_info(What, StateName, StateData) ->
 
 terminate(_Reason, _StateName, #state{socket=undefined}) ->
     ok;
-terminate(Reason, _StateName, #state{socket=Socket}) ->
+terminate(Reason, _StateName, #state{socket=Socket, sender=Send}) ->
+    Send(terminate),
     gen_tcp:send(Socket, io_lib:fwrite("QUIT :~p\r\n", [Reason])),
     gen_tcp:close(Socket),
     ok.
@@ -243,8 +248,8 @@ sanitize(Msg, MaxLen) ->
     lists:map(fun (X) -> binary:split(X, [<<$\r>>,<<$\n>>,<<"\r\n">>], [global,trim]) end,
               Chunks).
 
-max_msg_len(Nick, User, Host, Channel) ->
-    496 - (byte_size(Nick) + byte_size(User) + byte_size(Host) + byte_size(Channel)).
+max_msg_len(Channel) ->
+    502 - byte_size(Channel).
 
 sanitize_test() ->
     [[<<"foo">>,<<"bar">>]] = sanitize(<<"foo\r\nbar">>, 510),
