@@ -57,6 +57,10 @@ pp_action(<<"removeMemberFromCard">>, Data, Card) ->
     ["removed ",Name," from ",$\",Card,$\"];
 pp_action(<<"createCard">>, _Data, Card) ->
     ["created ",$\",Card,$\"];
+pp_action(<<"updateCard">>, #{<<"listAfter">> := #{<<"name">> := After},
+                              <<"listBefore">> := _},
+          Card) ->
+    ["moved ",$\",Card,$\", " to ", After];
 pp_action(<<"updateCard">>, _Data, Card) ->
     ["updated ",$\",Card,$\"];
 pp_action(S, _Data, Card) ->
