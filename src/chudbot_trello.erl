@@ -28,11 +28,10 @@ subscribe_webhook(Model, Config, BaseUrl) ->
 
 %%% Dealing with notifications
 
-handle_request(Body, _Req) ->
-    Json = jiffy:decode(Body, [return_maps]),
+handle_request(Json, {<<"application">>, <<"json">>}) ->
     Action = maps:get(<<"action">>, Json),
     Model = maps:get(<<"model">>, Json),
-    io_lib:fwrite("trello: ~s: ~s ~s",
+    io_lib:fwrite("(trello) ~s: ~s ~s",
                   [maps:get(<<"name">>, Model),
                    pp_who_dunnit(Action),
                    pp_action(Action)]).

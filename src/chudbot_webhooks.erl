@@ -1,36 +1,53 @@
 -module(chudbot_webhooks).
 -export([init/2]).
 
+%% Some dumb clients (e.g. buildbot) think that 204 is a failure code,
+%% so send 200 with an empty body..
+empty_reply(Req) ->
+    {ok, cowboy_req:reply(200, [], <<>>, Req), {}}.
+
 init(Req, Opts) ->
     case cowboy_req:has_body(Req) of
         true -> handle_request_with_body(Req, Opts);
-        _ -> {ok, cowboy_req:reply(200, [], <<>>, Req), {}}
+        _ -> empty_reply(Req)
     end.
 
 handle_request_with_body(Req, Opts) ->
-    %% {ok, KeyValues, Req2} = cowboy_req:body_qs(Req),
-    %% {_, Lang} = lists:keyfind(lang, 1, KeyValues).
-    io:format("HTTP request (~p): ~p~n", [Opts, Req]),
-    {ok, Data, Req2} = cowboy_req:body(Req),
+    {Type, Subtype, _} = cowboy_req:parse_header(<<"content-type">>, Req),
+    ContentType = {Type, Subtype},
+    {Data,Req2} = case ContentType of
+                      {<<"application">>, <<"x-www-form-urlencoded">>} ->
+                          {ok, KeyValues, R} = cowboy_req:body_qs(Req),
+                          {KeyValues, R};
+                      {<<"application">>, <<"json">>} ->
+                          {ok, Body, R} = cowboy_req:body(Req),
+                          {jiffy:decode(Body, [return_maps]), R}
+                  end,
     M = case Opts of
-            [trello] -> chudbot_trello:handle_request(Data, Req2);
-            [github] -> handle_github_request(Data, Req2);
-            [buildbot] -> handle_buildbot_request(Data, Req2);
-            _ -> io_lib:fwrite("Unknown request: ~p", Data)
+            [trello] -> chudbot_trello:handle_request(Data, ContentType);
+            [github] -> handle_github_request(Data, ContentType);
+            [buildbot] -> handle_buildbot_request(Data, ContentType);
+            _ -> io:format("Unexpected request (~p) ~p", [Opts, Req])
         end,
     chudbot_irc:announce(M),
-    Rep = cowboy_req:reply(204, [], <<>>, Req2),
-    {ok, Rep, {}}.
+    empty_reply(Req2).
 
-handle_github_request(Body, _Req) ->
-    Json = jiffy:decode(Body, [return_maps]),
+handle_github_request(Json, {<<"application">>, <<"json">>}) ->
     #{<<"sender">> := #{<<"login">> := Subject}} = Json,
     Object = case Json of
                  #{<<"repository">> := #{<<"name">> := X}} -> X;
                  #{<<"organization">> := #{<<"name">> := X}} -> X
              end,
     Verb = maps:get(<<"action">>, Json, "did something"),
-    io_lib:fwrite("github: ~s: ~s ~s", [Object, Subject, Verb]).
+    io_lib:fwrite("(github) ~s: ~s ~s", [Object, Subject, Verb]).
 
-handle_buildbot_request(Body, _Req) ->
-    io_lib:fwrite("buildbot: ~p", [Body]).
+handle_buildbot_request([{<<"packets">>, ToDecode}],
+                        {<<"application">>, <<"x-www-form-urlencoded">>}) ->
+    ExtractEvent = fun (J) ->
+                           case maps:get(<<"event">>, J, undefined) of
+                               undefined -> "unknown event";
+                               E -> binary_to_list(E)
+                           end
+                   end,
+    Json = jiffy:decode(ToDecode, [return_maps]),
+    ["(buildbot) ", string:join(lists:map(ExtractEvent, Json), ", ")].
