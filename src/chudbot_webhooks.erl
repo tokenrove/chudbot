@@ -15,7 +15,7 @@ handle_request_with_body(Req, Opts) ->
     M = case Opts of
             [trello] -> chudbot_trello:handle_request(Data, Req2);
             [github] -> handle_github_request(Data, Req2);
-            [buildbot] -> handle_github_request(Data, Req2);
+            [buildbot] -> handle_buildbot_request(Data, Req2);
             _ -> io_lib:fwrite("Unknown request: ~p", Data)
         end,
     chudbot_irc:announce(M),
@@ -23,7 +23,14 @@ handle_request_with_body(Req, Opts) ->
     {ok, Rep, {}}.
 
 handle_github_request(Body, _Req) ->
-    io_lib:fwrite("github: ~p", [Body]).
+    Json = jiffy:decode(Body, [return_maps]),
+    #{<<"sender">> := #{<<"login">> := Subject}} = Json,
+    Object = case Json of
+                 #{<<"repository">> := #{<<"name">> := X}} -> X;
+                 #{<<"organization">> := #{<<"name">> := X}} -> X
+             end,
+    Verb = maps:get(<<"action">>, Json, "did something"),
+    io_lib:fwrite("github: ~s: ~s ~s", [Object, Subject, Verb]).
 
 handle_buildbot_request(Body, _Req) ->
     io_lib:fwrite("buildbot: ~p", [Body]).
