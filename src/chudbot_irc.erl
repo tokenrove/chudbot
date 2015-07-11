@@ -13,7 +13,7 @@
 -module(chudbot_irc).
 -author('Julian Squires <julian@cipht.net>').
 -behavior(gen_fsm).
--export([start_link/1,announce/2,shutdown/1]).
+-export([start_link/1,announce/1,shutdown/0]).
 -export([init/1,handle_event/3,handle_sync_event/4,handle_info/3,terminate/3,code_change/4]).
 -export([connecting/2,connected/2,idle/2]).
 -export([parse_msg/1]).
@@ -45,11 +45,11 @@
 start_link(Config) ->
     gen_fsm:start_link({local,?MODULE}, ?MODULE, Config, []).
 
-announce(Pid, Msg) ->
-    gen_fsm:send_event(Pid, {notice, Msg}).
+announce(Msg) ->
+    gen_fsm:send_event(whereis(?MODULE), {notice, Msg}).
 
-shutdown(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, stop).
+shutdown() ->
+    gen_fsm:sync_send_all_state_event(whereis(?MODULE), stop).
 
 %%% GEN_FSM BEHAVIOR
 
@@ -271,5 +271,10 @@ fmt_notice(Channel, Msg) ->
 fmt_privmsg(Channel, Msg) ->
     [<<"PRIVMSG ">>, Channel, <<" :">>, Msg, <<"\r\n">>].
 
-handle_command(Command, #state{config=Config, socket=Socket}) ->
-    gen_tcp:send(Socket, fmt_notice(Config#config.channel, io_lib:fwrite("Not sure how to handle ~p", [Command]))).
+address(Target, #state{sender=Send}, Msg) ->
+    Send(fmt_privmsg(Target, Msg)).
+
+handle_command(<<"pomodoro">>, _Target, _State) ->
+    chudbot_pomodoro:start();
+handle_command(Command, Target, State) ->
+    address(Target, State, io_lib:fwrite("Not sure how to handle ~p", [Command])).

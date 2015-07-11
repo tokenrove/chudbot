@@ -4,7 +4,7 @@
   {description, "chudbot"},
   {vsn, "1"},
   {modules, []},
-  {registered, [chudbot_sup, chudbot_irc]},
+  {registered, [chudbot_sup, chudbot_irc, chudbot_pomodoro]},
   {applications, [
                   kernel,
                   stdlib,
