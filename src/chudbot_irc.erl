@@ -4,11 +4,6 @@
 %%%
 %%% Features intentionally omitted:
 %%%  - multiple channels
-%%%
-%%% TODO:
-%%%  - flood protection (queue notices and send_after)
-%%%  - handle nick in use
-%%%  - handle problem joining channel
 
 -module(chudbot_irc).
 -author('Julian Squires <julian@cipht.net>').
