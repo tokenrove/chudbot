@@ -25,21 +25,28 @@ handle_request_with_body(Req, Opts) ->
                   end,
     M = case Opts of
             [trello] -> chudbot_trello:handle_request(Data, ContentType);
-            [github] -> handle_github_request(Data, ContentType);
+            [github] ->
+                Event = cowboy_req:header(<<"x-github-event">>, Req2),
+                handle_github_request(Event, Data, ContentType);
             [buildbot] -> handle_buildbot_request(Data, ContentType);
             _ -> io:format("Unexpected request (~p) ~p", [Opts, Req])
         end,
     chudbot_irc:announce(M),
     empty_reply(Req2).
 
-handle_github_request(Json, {<<"application">>, <<"json">>}) ->
+handle_github_request(Event, Json, {<<"application">>, <<"json">>}) ->
     #{<<"sender">> := #{<<"login">> := Subject}} = Json,
     Object = case Json of
                  #{<<"repository">> := #{<<"name">> := X}} -> X;
                  #{<<"organization">> := #{<<"name">> := X}} -> X
              end,
-    Verb = maps:get(<<"action">>, Json, "did something"),
-    io_lib:fwrite("(github) ~s: ~s ~s", [Object, Subject, Verb]).
+    Desc = case Event of
+               <<"push">> ->
+                   [Subject, " pushed ", integer_to_list(length(maps:get(<<"commits">>, Json, []))),
+                    " commits to ", Object];
+               _ -> [Subject, $ , Event, "'d", " on ", Object]
+           end,
+    ["(github) " | Desc].
 
 handle_buildbot_request([{<<"packets">>, ToDecode}],
                         {<<"application">>, <<"x-www-form-urlencoded">>}) ->
