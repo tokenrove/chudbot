@@ -42,8 +42,10 @@ handle_github_request(Event, Json, {<<"application">>, <<"json">>}) ->
              end,
     Desc = case Event of
                <<"push">> ->
-                   [Subject, " pushed ", integer_to_list(length(maps:get(<<"commits">>, Json, []))),
-                    " commits to ", Object];
+                   N = length(maps:get(<<"commits">>, Json, [])),
+                   [Subject, " pushed ", integer_to_list(N),
+                    case N of 1 -> " commit"; _ -> " commits" end,
+                    " to ", Object];
                _ -> [Subject, $ , Event, "'d", " on ", Object]
            end,
     ["(github) " | Desc].
