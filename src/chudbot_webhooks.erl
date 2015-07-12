@@ -38,7 +38,7 @@ handle_github_request(Event, Json, {<<"application">>, <<"json">>}) ->
     #{<<"sender">> := #{<<"login">> := Subject}} = Json,
     Object = case Json of
                  #{<<"repository">> := #{<<"name">> := X}} -> X;
-                 #{<<"organization">> := #{<<"name">> := X}} -> X
+                 #{<<"organization">> := #{<<"login">> := X}} -> X
              end,
     Desc = case Event of
                <<"push">> ->
