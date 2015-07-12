@@ -13,39 +13,39 @@ start() ->
 loop(not_started) ->
     receive
         start ->
-            chudbot_irc:announce("Started a 25 minute pomodoro."),
+            chudbot_irc:say("Started a 25 minute pomodoro."),
             loop({pomodoro, erlang:send_after(25*60*1000, self(), done)});
         terminate -> ok
     end;
 loop(State={pomodoro, TRef}) ->
     receive
         start ->
-            chudbot_irc:announce("A pomodoro is already running (" ++
-                                     pp_timer(TRef) ++ " remaining)."),
+            chudbot_irc:say("A pomodoro is already running (" ++
+                                pp_timer(TRef) ++ " remaining)."),
             loop(State);
         done ->
-            chudbot_irc:announce("Time's up!  Take a five minute break."),
+            chudbot_irc:say("Time's up!  Take a five minute break."),
             loop({break, erlang:send_after(5*60*1000, self(), done), false});
         terminate ->
-            chudbot_irc:announce("Interrupting a pomodoro."),
+            chudbot_irc:say("Interrupting a pomodoro."),
             ok
     end;
 loop({break, TRef, Queued}) ->
     receive
         start ->
-            chudbot_irc:announce("It's still break time (" ++
-                                     pp_timer(TRef) ++
-                                     " remaining), but I've queued up another pomodoro."),
+            chudbot_irc:say("It's still break time (" ++
+                                pp_timer(TRef) ++
+                                " remaining), but I've queued up another pomodoro."),
             loop({break, TRef, true});
         done ->
-            chudbot_irc:announce("Break's over!"),
+            chudbot_irc:say("Break's over!"),
             case Queued of
                 true -> self() ! start;
                 _ -> ok
             end,
             loop(not_started);
         terminate ->
-            chudbot_irc:announce("Interrupting a break."),
+            chudbot_irc:say("Interrupting a break."),
             ok
     end.
 

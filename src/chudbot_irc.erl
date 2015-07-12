@@ -8,7 +8,7 @@
 -module(chudbot_irc).
 -author('Julian Squires <julian@cipht.net>').
 -behavior(gen_fsm).
--export([start_link/1,announce/1,shutdown/0]).
+-export([start_link/1,announce/1,say/1,shutdown/0]).
 -export([init/1,handle_event/3,handle_sync_event/4,handle_info/3,terminate/3,code_change/4]).
 -export([connecting/2,connected/2,idle/2]).
 -export([parse_msg/1]).
@@ -40,9 +40,12 @@
 start_link(Config) ->
     gen_fsm:start_link({local,?MODULE}, ?MODULE, Config, []).
 
-announce([]) -> ignored;
-announce(Msg) ->
-    gen_fsm:send_event(whereis(?MODULE), {notice, Msg}).
+announce([])  -> ignored;
+announce(Msg) -> gen_fsm:send_event(whereis(?MODULE), {notice, Msg}).
+
+say([])  -> ignored;
+say(Msg) -> gen_fsm:send_event(whereis(?MODULE), {privmsg, Msg}).
+
 
 shutdown() ->
     gen_fsm:sync_send_all_state_event(whereis(?MODULE), stop).
@@ -81,11 +84,12 @@ connected(What, S) ->
     unexpected([connected, What]),
     {next_state, connected, S}.
 
-idle({notice, Msg}, S=#state{config=Config, sender=Send}) ->
-    Channel = Config#config.channel,
-    Msgs = sanitize(iolist_to_binary(Msg), max_msg_len(Channel)),
-    lists:foreach(fun(M) -> Send(fmt_notice(Channel, M)) end,
-                  Msgs),
+idle({notice, Msg}, S) ->
+    handle_notice(Msg, fun fmt_notice/2, S),
+    {next_state, idle, S};
+
+idle({privmsg, Msg}, S) ->
+    handle_notice(Msg, fun fmt_privmsg/2, S),
     {next_state, idle, S};
 
 idle(W={{user, Them, _}, {privmsg, Target, Msg}},
@@ -266,6 +270,11 @@ fmt_notice(Channel, Msg) ->
 
 fmt_privmsg(Channel, Msg) ->
     [<<"PRIVMSG ">>, Channel, <<" :">>, Msg, <<"\r\n">>].
+
+handle_notice(Msg, Fmt, S=#state{config=Config, sender=Send}) ->
+    Channel = Config#config.channel,
+    Msgs = sanitize(iolist_to_binary(Msg), max_msg_len(Channel)),
+    lists:foreach(fun(M) -> Send(Fmt(Channel, M)) end, Msgs).
 
 address(Target, #state{sender=Send}, Msg) ->
     Send(fmt_privmsg(Target, Msg)).
