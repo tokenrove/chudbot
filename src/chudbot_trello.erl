@@ -29,31 +29,30 @@ subscribe_webhook(Model, Config, BaseUrl) ->
 %%% Dealing with notifications
 
 handle_request(Json, {<<"application">>, <<"json">>}) ->
-    Action = maps:get(<<"action">>, Json),
-    Model = maps:get(<<"model">>, Json),
+    #{<<"action">> := Action, <<"model">> := Model} = Json,
     io_lib:fwrite("(trello) ~s: ~s ~s",
                   [maps:get(<<"name">>, Model),
                    pp_who_dunnit(Action),
                    pp_action(Action)]).
 
-pp_who_dunnit(Action) ->
-    maps:get(<<"fullName">>, maps:get(<<"memberCreator">>, Action)).
+pp_who_dunnit(#{<<"memberCreator">> := #{<<"fullName">> := N}}) -> N;
+pp_who_dunnit(_) -> "unknown".
 
-pp_action(Action) ->
-    Data = maps:get(<<"data">>, Action),
-    Card = maps:get(<<"name">>, maps:get(<<"card">>, Data)),
-    pp_action(maps:get(<<"type">>, Action), Data, Card).
+pp_action(#{<<"data">> := Data, <<"type">> := Type}) ->
+    Card = case Data of
+               #{<<"card">> := #{<<"name">> := N}} -> N;
+               _ -> undefined
+           end,
+    pp_action(Type, Data, Card).
 
-pp_action(<<"updateCheckItemStateOnCard">>, Data, Card) ->
-    Item = maps:get(<<"checkItem">>, Data),
-    Name = maps:get(<<"name">>, Item),
-    Verb = [maps:get(<<"state">>, Item), "d"],
-    [Verb, " ", $\", Name, $\", " on ", $\", Card, $\"];
-pp_action(<<"addMemberToCard">>, Data, Card) ->
-    Name = maps:get(<<"idMember">>, Data),
+pp_action(S, _Data, undefined) ->
+    [S, "'d"];
+pp_action(<<"updateCheckItemStateOnCard">>, #{<<"checkItem">> := Item}, Card) ->
+    #{<<"name">> := Name, <<"state">> := Verb} = Item,
+    [Verb, "d ", $\", Name, $\", " on ", $\", Card, $\"];
+pp_action(<<"addMemberToCard">>, #{<<"idMember">> := Name}, Card) ->
     ["added ",Name," to ",$\",Card,$\"];
-pp_action(<<"removeMemberFromCard">>, Data, Card) ->
-    Name = maps:get(<<"idMember">>, Data),
+pp_action(<<"removeMemberFromCard">>, #{<<"idMember">> := Name}, Card) ->
     ["removed ",Name," from ",$\",Card,$\"];
 pp_action(<<"createCard">>, _Data, Card) ->
     ["created ",$\",Card,$\"];

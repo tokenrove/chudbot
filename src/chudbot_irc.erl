@@ -271,7 +271,7 @@ fmt_notice(Channel, Msg) ->
 fmt_privmsg(Channel, Msg) ->
     [<<"PRIVMSG ">>, Channel, <<" :">>, Msg, <<"\r\n">>].
 
-handle_notice(Msg, Fmt, S=#state{config=Config, sender=Send}) ->
+handle_notice(Msg, Fmt, #state{config=Config, sender=Send}) ->
     Channel = Config#config.channel,
     Msgs = sanitize(iolist_to_binary(Msg), max_msg_len(Channel)),
     lists:foreach(fun(M) -> Send(Fmt(Channel, M)) end, Msgs).
