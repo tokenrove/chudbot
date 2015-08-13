@@ -46,6 +46,12 @@ handle_github_request(Event, Json, {<<"application">>, <<"json">>}) ->
                    [Subject, " pushed ", integer_to_list(N),
                     case N of 1 -> " commit"; _ -> " commits" end,
                     " to ", Object];
+               <<"issue">> ->
+                   #{<<"issue">> := #{<<"number">> := IssueNum}} = Json,
+                   [Subject, " created issue ", integer_to_list(IssueNum), " on ", Object];
+               <<"issue_comment">> ->
+                   #{<<"issue">> := #{<<"number">> := IssueNum}} = Json,
+                   [Subject, " commented on issue ", integer_to_list(IssueNum), " on ", Object];
                _ -> [Subject, $ , Event, "'d", " on ", Object]
            end,
     ["(github) " | Desc].
