@@ -20,10 +20,10 @@ subscribe_webhook(Model, Config, BaseUrl) ->
     Token = proplists:get_value(token, Config),
     ContentType = "application/json",
     Uri = lists:flatten(["https://trello.com/1/tokens/", Token, "/webhooks/?key=", Key]),
-    Body = jiffy:encode(#{description => "Chudbot watching boards",
-                          'callbackURL' => (BaseUrl ++ "/chudbot/trello"),
+    Body = jiffy:encode(#{description => list_to_binary("Chudbot watching boards"),
+                          'callbackURL' => list_to_binary(BaseUrl ++ "/chudbot/trello"),
                           'idModel' => Model}),
-    {ok, {{_, Status, _}, _, _}} = httpc:request(post, [Uri, [], ContentType, Body], [], []),
+    {ok, {{_, Status, _}, _, _}} = httpc:request(post, {Uri, [], ContentType, Body}, [], []),
     Status.
 
 %%% Dealing with notifications

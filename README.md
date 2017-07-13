@@ -26,7 +26,18 @@ https://trello.com/1/authorize?name=Chudbot&expiration=never&response_type=token
 in a browser to get a suitable token and setup `priv/trello.config`.
 
 You can then use the functions in `chudbot_trello` to setup your
-webhooks.  This will be documented when it's actually usable.
+webhooks.  This is not particularly usable:
+
+```erlang
+> {ok, TrelloConfig} =
+    file:consult(filename:join([code:priv_dir(chudbot), "trello.config"])).
+> chudbot_trello:start().
+> BoardsToModelIds = chudbot_trello:list_boards(TrelloConfig).
+> BaseUrl = "http://wherever.example.com:8080".
+> ModelId = proplists:get_value(<<"My board">>, BoardsToModelIds).
+> chudbot_trello:subscribe_webhook(ModelId, TrelloConfig, BaseUrl).
+```
+
 
 Adding BuildBot hooks
 ---------------------
